@@ -35,6 +35,11 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "chatty.h"
 
@@ -68,6 +73,18 @@ int main(int argc, char *argv[])
   return client();
 }
 
+/*
+ * Returns the IP number
+ */
+void *get_in_addr(struct sockaddr *sa)
+{
+  if (sa->sa_family == AF_INET){
+    return &(((struct sockaddr_in *)sa)->sin_addr);
+  }
+
+  return &(((struct sockaddr_in6 *)sa)->sin6_addr);
+}
+
 int server(void)
 {
   /* socket file descriptor */
@@ -77,6 +94,8 @@ int server(void)
   struct addrinfo *servinfo;
   /* multipurpose */
   int status;
+  /* IP number of the connector */
+  char ip[INET6_ADDRSTRLEN];
 
   /* clear out the hints struct */
   memset(&hints, 0, sizeof hints);
@@ -106,6 +125,8 @@ int server(void)
     exit(EXIT_FAILURE);
   }
 
+  printf(" \e[0;34m*\e[0;0m listening on port %s\n", PORT);
+
   /* listen to incoming connections */
   while (listen(sockfd, 10) != -1){
     /* the connectors address */
@@ -119,7 +140,20 @@ int server(void)
       perror("accept");
       exit(EXIT_FAILURE);
     }
-    send(newfd, "Siedem!", 7, 0);
+    inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), ip, sizeof ip);
+    /* some output */
+    printf(" \e[0;33m*\e[0;0m got a connection from %s\n", ip);
+
+    /* this is the child's process */
+    if (!fork()){
+      close(sockfd);
+      if (send(newfd, "Siedem!", 7, 0) == -1){
+        perror("send");
+      }
+      /*close(newfd);*/
+      exit(EXIT_FAILURE);
+    }
+    /*close(newfd);*/
   }
 
   /* free the linked list */
