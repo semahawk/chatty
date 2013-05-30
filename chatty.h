@@ -38,7 +38,6 @@
 #include <getopt.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <signal.h>
 #include <netdb.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -46,11 +45,15 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <time.h>
+#include <pthread.h>
+#include <stdbool.h>
+#include <signal.h>
 
 /* version of the Chatty */
 #define VERSION "0.1.0"
 /* the port clients will connect to (unchangeable, unless hard-coded-ingly) */
 #define PORT "1337"
+#define THREADS	1
 
 /*
  * Here are all the special messages.

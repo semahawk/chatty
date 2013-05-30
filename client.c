@@ -31,6 +31,27 @@
 
 #include "chatty.h"
 
+static bool mainLoop = true;
+
+void closeHandler(int sig){
+	mainLoop = false;
+}
+
+void *reciveThread(void *sid){
+	char recv_buffer[256];
+	int byte_count, *sockid;
+	int obj_count = 5; //FOR debug only;
+	sockid = (int *) sid;
+	memset(&recv_buffer, 0 , sizeof(recv_buffer));
+	while(obj_count > 0){
+		if((byte_count = recv(*sockid, recv_buffer, sizeof(recv_buffer), 0)) == -1){
+			perror("recv");
+		}
+		printf("\e[0;34mMessage:\e[0;0m%s\n", recv_buffer);
+		obj_count--;
+	}
+}
+
 int client(void)
 {
   /* the JOIN message that's sent first */
@@ -38,14 +59,22 @@ int client(void)
   char nick[64];
   char ip[INET6_ADDRSTRLEN], buffer[256];
   int status, sockid, byte_count;
+	int thread_stat;
+	char *input;
   struct addrinfo hints;
   struct addrinfo *servinfo;
+	pthread_attr_t attr;
+	pthread_t thread;
 
+	signal(SIGINT, closeHandler);
   memset(&hints, 0, sizeof(hints));
   hints.ai_family			= AF_UNSPEC;
   hints.ai_socktype		= SOCK_STREAM;
 
-  printf("Client Mode - Connect\nPlease input the server IP: ");
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+
+  printf("Client Mode - Connect\nPlease input the server IP:");
   scanf("%s", ip);
   if((status = getaddrinfo(ip, PORT, &hints, &servinfo)) != 0){
     perror("getaddrinfo");
@@ -64,22 +93,24 @@ int client(void)
     perror("connect");
     exit(EXIT_FAILURE);
   }
-  memset(&buffer, 0, sizeof(buffer));
-  /* create the JOIN message */
-  sprintf(join_msg, "%c%s", MSG_JOIN, nick);
-  if (send(sockid, join_msg, strlen(join_msg), 0) == -1){
-    perror("send");
-    exit(EXIT_FAILURE);
-  }
-
-  if((byte_count = recv(sockid, buffer, sizeof(buffer), 0)) == -1){
-    perror("recv");
-    exit(EXIT_FAILURE);
-  }
-
-  printf("Recived data: %s\n", buffer);
-
+	thread_stat = pthread_create(&thread, &attr, reciveThread, (void *) &sockid);
+	input = malloc(sizeof(char) * 129);
+	while(mainLoop){
+		memset(input, 0, 129);
+		input = fgets(input, 128, stdin);
+		input[strlen(input) - 1] = '\0';
+		if(strlen(input) > 1){
+			byte_count = send(sockid, input, sizeof(input), 0);
+			printf("Sent %d bytes [%s]\n", sizeof(input), input);
+		}
+	}
+	pthread_detach(thread);
+	pthread_join(thread, NULL);
+	printf(" \e[0;34mClient Closing..\e[0m\n");
+	free(input);
   freeaddrinfo(servinfo);
   return 0;
 }
+
+
 
