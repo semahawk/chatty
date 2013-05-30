@@ -34,8 +34,14 @@
 /* the clients list */
 static struct clients *clients = NULL;
 
+void sigchld_handler(int s)
+{
+    while(waitpid(-1, NULL, WNOHANG) > 0);
+}
+
 int server(void)
 {
+  struct sigaction sa;
   /* socket file descriptor */
   int sockfd;
   struct addrinfo hints;
@@ -61,7 +67,6 @@ int server(void)
   }
 
   /* servinfo now points to a linked list of 1 or more struct addrinfos */
-    //That's a little test.. :D
   /* get the socket descriptor */
   if ((sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol)) == -1){
     perror("socket");
@@ -71,6 +76,15 @@ int server(void)
   /* bind to the port we passed in to getaddrinfo */
   if ((bind(sockfd, servinfo->ai_addr, servinfo->ai_addrlen)) == -1){
     perror("bind");
+    exit(EXIT_FAILURE);
+  }
+
+  /* reap all the dead processes */
+  sa.sa_handler = sigchld_handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = SA_RESTART;
+  if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+    perror("sigaction");
     exit(EXIT_FAILURE);
   }
 

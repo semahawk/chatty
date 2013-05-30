@@ -38,6 +38,7 @@
 #include <getopt.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <signal.h>
 #include <netdb.h>
 #include <errno.h>
 #include <netinet/in.h>
