@@ -100,8 +100,8 @@ int client(void)
 		input = fgets(input, 128, stdin);
 		input[strlen(input) - 1] = '\0';
 		if(strlen(input) > 1){
-			byte_count = send(sockid, input, sizeof(input), 0);
-			printf("Sent %d bytes [%s]\n", sizeof(input), input);
+			byte_count = send(sockid, input, strlen(input), 0);
+			printf("Sent %lu bytes [%s]\n", strlen(input), input);
 		}
 	}
 	pthread_detach(thread);

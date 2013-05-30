@@ -53,6 +53,8 @@
 #define VERSION "0.1.0"
 /* the port clients will connect to (unchangeable, unless hard-coded-ingly) */
 #define PORT "1337"
+/* max connections waiting in a queue */
+#define MAX_PENDING 5
 #define THREADS	1
 
 /*
@@ -80,6 +82,7 @@ struct clients {
 
 int server(void);
 int client(void);
+void *handle_client(void *arg);
 void out(const char *msg, ...);
 void dispatch(int fd, char *msg);
 void add_client(int fd, char *name);

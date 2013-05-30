@@ -51,6 +51,14 @@ int server(void)
   int status;
   /* IP number of the connector */
   char ip[INET6_ADDRSTRLEN];
+  /* the connectors address */
+  struct sockaddr_storage their_addr;
+  /* the connectors file socket descriptor */
+  int newfd;
+  /* size of the connectors address */
+  socklen_t addr_size = sizeof their_addr;
+  /* thread for the client */
+  pthread_t client_thd;
 
   /* clear out the hints struct */
   memset(&hints, 0, sizeof hints);
@@ -88,53 +96,65 @@ int server(void)
     exit(EXIT_FAILURE);
   }
 
+  /* listen to incoming connections */
+  if (listen(sockfd, MAX_PENDING) == -1){
+    perror("listen");
+    exit(EXIT_FAILURE);
+  }
+
   printf(" \e[1;34m*\e[0;0m listening on port %s\n", PORT);
 
-  /* listen to incoming connections */
-  while (listen(sockfd, 10) != -1){
-    /* the connectors address */
-    struct sockaddr_storage their_addr;
-    /* the connectors file socket descriptor */
-    int newfd;
-    /* size of the connectors address */
-    socklen_t addr_size = sizeof their_addr;
+  while (1){
     /* accept the connection */
     if ((newfd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size)) == -1){
       perror("accept");
       exit(EXIT_FAILURE);
     }
+    /* get the clients IP number */
     inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), ip, sizeof ip);
     /* print some output */
     printf(" \e[1;33m*\e[0;0m got a connection from %s\n", ip);
 
-    /* this is the child's process */
-    if (!fork()){
-      char msg[64];
-      char welcome_msg[64];
-      close(sockfd);
-      /* recieving the join message */
-      if (recv(newfd, msg, 64, 0) == -1){
-        perror("recv");
-        /*exit(EXIT_FAILURE);*/
-      }
-      /* dispatch the message, eg. do what it tells to */
-      dispatch(newfd, msg);
-      /* create the welcome message */
-      sprintf(welcome_msg, "Siedem, %s!", msg);
-      if (send(newfd, welcome_msg, strlen(welcome_msg), 0) == -1){
-        perror("send");
-        /*exit(EXIT_FAILURE);*/
-      }
-      /*close(newfd);*/
+    /* create a thread for the client */
+    if (pthread_create(&client_thd, 0, handle_client, (void *)&newfd) != 0){
+      perror("pthread_create");
       exit(EXIT_FAILURE);
     }
-    /*close(newfd);*/
   }
 
+  /* close the socket */
+  close(sockfd);
   /* free the linked list */
   freeaddrinfo(servinfo);
 
   return 0;
+}
+
+/*
+ * Thread function to recieve and send messages to the client
+ */
+void *handle_client(void *arg)
+{
+  int fd = *(int *)arg;
+  char send_buffer[64];
+  char recv_buffer[64];
+
+  while (1){
+    /* zero out the recieving buffer */
+    memset(recv_buffer, 0, 64);
+    /* recieve the message */
+    if (recv(fd, recv_buffer, 63, 0) != -1){
+      dispatch(fd, recv_buffer);
+    } else {
+      perror("recv");
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  /* close the clients socket */
+  close(fd);
+
+  return NULL;
 }
 
 /*
@@ -162,6 +182,13 @@ void dispatch(int fd, char *msg)
         break;
       default:
         /* TODO: forward the message to every client connected here */
+        /* but for now, send it back to the client */
+        if (send(fd, rest, strlen(rest), 0) == -1){
+          perror("send");
+          exit(EXIT_FAILURE);
+        }
+        /* and output to the servers... output */
+        out("one of the clients says: %s\n", rest);
         break;
     }
   }
