@@ -50,6 +50,18 @@
 /* the port clients will connect to (unchangeable, unless hard-coded-ingly) */
 #define PORT "1337"
 
+/*
+ * Here are all the special messages.
+ *
+ * If the first character of a recieved message is one of the following, then
+ * it's a special message.
+ *
+ * If the first character of a recieved message is NOT one of the following,
+ * then it's just a regular message
+ */
+#define MSG_JOIN 0x01
+#define MSG_TEST 0x02
+
 struct clients {
   /* socket fd */
   int fd;

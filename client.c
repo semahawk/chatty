@@ -33,6 +33,8 @@
 
 int client(void)
 {
+  /* the JOIN message that's sent first */
+  char join_msg[64];
   char nick[64];
   char ip[INET6_ADDRSTRLEN], buffer[256];
   int status, sockid, byte_count;
@@ -63,7 +65,9 @@ int client(void)
     exit(EXIT_FAILURE);
   }
   memset(&buffer, 0, sizeof(buffer));
-  if (send(sockid, nick, strlen(nick), 0) == -1){
+  /* create the JOIN message */
+  sprintf(join_msg, "%c%s", MSG_JOIN, nick);
+  if (send(sockid, join_msg, strlen(join_msg), 0) == -1){
     perror("send");
     exit(EXIT_FAILURE);
   }

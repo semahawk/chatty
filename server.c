@@ -101,6 +101,11 @@ int server(void)
         perror("recv");
         /*exit(EXIT_FAILURE);*/
       }
+      /* make sure it was a join message */
+      if (join_msg[0] != MSG_JOIN){
+        fprintf(stderr, "expected a JOIN message first\n");
+        exit(EXIT_FAILURE);
+      }
       /* add the client to the clients list */
       add_client(newfd, join_msg);
       /* print some output */
