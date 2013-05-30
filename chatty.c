@@ -4,7 +4,7 @@
  *
  * Created at:  Tue 28 May 2013 22:37:04 CEST 22:37:04
  *
- * Author:  Szymon Urbaś <szymon.urbas@aol.com>
+ * Author:  Szymon Urbaś <szymon.urbas@aol.com> and Tomek K. <tomicode@gmail.com>
  *
  * License: the MIT license
  *
@@ -112,7 +112,7 @@ int server(void)
   }
 
   /* servinfo now points to a linked list of 1 or more struct addrinfos */
-
+		//That's a little test.. :D
   /* get the socket descriptor */
   if ((sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol)) == -1){
     perror("socket");
