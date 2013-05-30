@@ -4,7 +4,7 @@
  *
  * Created at:  Tue 28 May 2013 22:37:04 CEST 22:37:04
  *
- * Author:  Szymon Urbaś <szymon.urbas@aol.com>
+ * Author:  Szymon Urbaś <szymon.urbas@aol.com> and Tomek K. <tomicode@gmail.com>
  *
  * License: the MIT license
  *
@@ -69,7 +69,6 @@ int main(int argc, char *argv[])
   if (run_as_server){
     return server();
   }
-
   return client();
 }
 
@@ -81,7 +80,6 @@ void *get_in_addr(struct sockaddr *sa)
   if (sa->sa_family == AF_INET){
     return &(((struct sockaddr_in *)sa)->sin_addr);
   }
-
   return &(((struct sockaddr_in6 *)sa)->sin6_addr);
 }
 
@@ -112,7 +110,7 @@ int server(void)
   }
 
   /* servinfo now points to a linked list of 1 or more struct addrinfos */
-
+		//That's a little test.. :D
   /* get the socket descriptor */
   if ((sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol)) == -1){
     perror("socket");
@@ -154,7 +152,7 @@ int server(void)
       exit(EXIT_FAILURE);
     }
     /*close(newfd);*/
-  }
+  } 
 
   /* free the linked list */
   freeaddrinfo(servinfo);
@@ -164,8 +162,40 @@ int server(void)
 
 int client(void)
 {
-  printf("running as client\n");
+	char ip[INET6_ADDRSTRLEN], buffer[256];
+	int status, sockid, byte_count;
+	struct addrinfo hints;
+	struct addrinfo *servinfo;
 
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family			= AF_UNSPEC;
+	hints.ai_socktype		= SOCK_STREAM;
+
+  printf("Client Mode - Connect\nPlease input the server IP:");
+	scanf("%s", ip);
+	if((status = getaddrinfo(ip, PORT, &hints, &servinfo)) != 0){
+		perror("getaddrinfo");
+		exit(EXIT_FAILURE);
+	}
+
+	if((sockid = socket(servinfo->ai_family, servinfo->ai_socktype, 0)) == -1){
+		perror("socket");
+		exit(EXIT_FAILURE);
+	}
+	
+	if((status = connect(sockid, servinfo->ai_addr, servinfo->ai_addrlen)) != 0){
+		perror("connect");
+		exit(EXIT_FAILURE);
+	}
+	memset(&buffer, 0, sizeof(buffer));
+	if((byte_count = recv(sockid, buffer, sizeof(buffer), 0)) == -1){
+		perror("recv");
+		exit(EXIT_FAILURE);
+	}
+	
+	printf(" Recived data: %s\n", buffer);
+
+	freeaddrinfo(servinfo);
   return 0;
 }
 
