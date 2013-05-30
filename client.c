@@ -30,13 +30,38 @@
 
 #include "chatty.h"
 
+static bool mainLoop = true;
+
+void closeHandler(int sig){
+	mainLoop = false;
+}
+
+void *reciveThread(void *sid){
+	char recv_buffer[256];
+	int byte_count, *sockid;
+	int obj_count = 5; //FOR debug only;
+	sockid = (int *) sid;
+	memset(&recv_buffer, 0 , sizeof(recv_buffer));
+	while(obj_count > 0){
+		if((byte_count = recv(*sockid, recv_buffer, sizeof(recv_buffer), 0)) == -1){
+			perror("recv");
+		}
+		printf("\e[0;34mMessage:\e[0;0m%s\n", recv_buffer);
+		obj_count--;
+	}
+}
+
 int client(void)
 {
   char ip[INET6_ADDRSTRLEN], buffer[256];
   int status, sockid, byte_count;
+	int thread_stat;
+	char *input;
   struct addrinfo hints;
   struct addrinfo *servinfo;
+	pthread_t threads[THREADS];
 
+	signal(SIGINT, closeHandler);
   memset(&hints, 0, sizeof(hints));
   hints.ai_family			= AF_UNSPEC;
   hints.ai_socktype		= SOCK_STREAM;
@@ -57,15 +82,21 @@ int client(void)
     perror("connect");
     exit(EXIT_FAILURE);
   }
-  memset(&buffer, 0, sizeof(buffer));
-  if((byte_count = recv(sockid, buffer, sizeof(buffer), 0)) == -1){
-    perror("recv");
-    exit(EXIT_FAILURE);
-  }
-
-  printf(" Recived data: %s\n", buffer);
-
+	thread_stat = pthread_create(&threads[0], NULL, reciveThread, (void *) &sockid);
+	input = malloc(sizeof(char) * 129);
+	while(mainLoop){
+		memset(input, 0, sizeof(input));
+		input = fgets(input, 128, stdin);
+		input[strlen(input) - 1] = '\0';
+		if(strlen(input) > 1){
+			byte_count = send(sockid, input, sizeof(input), 0);
+			printf(" Sended %d bytes [%s]\n", sizeof(input), input);
+		}
+	}
+	printf(" \e[0;34mClient Closing..\e[0m\n");
   freeaddrinfo(servinfo);
   return 0;
 }
+
+
 

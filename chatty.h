@@ -43,11 +43,15 @@
 #include <arpa/inet.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <pthread.h>
+#include <stdbool.h>
+#include <signal.h>
 
 /* version of the Chatty */
 #define VERSION "0.1.0"
 /* the port clients will connect to (unchangeable, unless hard-coded-ingly) */
 #define PORT "1337"
+#define THREADS	1
 
 int server(void);
 int client(void);
