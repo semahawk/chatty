@@ -4,7 +4,8 @@
  *
  * Created at:  Tue 28 May 2013 22:37:04 CEST 22:37:04
  *
- * Author:  Szymon Urbaś <szymon.urbas@aol.com> and Tomek K. <tomicode@gmail.com>
+ * Authors: Tomek K.     <tomicode@gmail.com>
+ *          Szymon Urbaś <szymon.urbas@aol.com>
  *
  * License: the MIT license
  *

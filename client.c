@@ -4,7 +4,8 @@
  *
  * Created at:  Thu 30 May 2013 11:46:28 CEST 11:46:28
  *
- * Author:  Szymon Urbaś <szymon.urbas@aol.com>
+ * Authors: Tomek K.     <tomicode@gmail.com>
+ *          Szymon Urbaś <szymon.urbas@aol.com>
  *
  * License: the MIT license
  *
@@ -32,6 +33,7 @@
 
 int client(void)
 {
+  char nick[64];
   char ip[INET6_ADDRSTRLEN], buffer[256];
   int status, sockid, byte_count;
   struct addrinfo hints;
@@ -41,12 +43,15 @@ int client(void)
   hints.ai_family			= AF_UNSPEC;
   hints.ai_socktype		= SOCK_STREAM;
 
-  printf("Client Mode - Connect\nPlease input the server IP:");
+  printf("Client Mode - Connect\nPlease input the server IP: ");
   scanf("%s", ip);
   if((status = getaddrinfo(ip, PORT, &hints, &servinfo)) != 0){
     perror("getaddrinfo");
     exit(EXIT_FAILURE);
   }
+
+  printf("Choose your nick: ");
+  scanf("%s", nick);
 
   if((sockid = socket(servinfo->ai_family, servinfo->ai_socktype, 0)) == -1){
     perror("socket");
@@ -58,12 +63,17 @@ int client(void)
     exit(EXIT_FAILURE);
   }
   memset(&buffer, 0, sizeof(buffer));
+  if (send(sockid, nick, strlen(nick), 0) == -1){
+    perror("send");
+    exit(EXIT_FAILURE);
+  }
+
   if((byte_count = recv(sockid, buffer, sizeof(buffer), 0)) == -1){
     perror("recv");
     exit(EXIT_FAILURE);
   }
 
-  printf(" Recived data: %s\n", buffer);
+  printf("Recived data: %s\n", buffer);
 
   freeaddrinfo(servinfo);
   return 0;

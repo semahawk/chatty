@@ -4,7 +4,8 @@
  *
  * Created at:  Thu 30 May 2013 11:43:31 CEST 11:43:31
  *
- * Author:  Szymon Urbaś <szymon.urbas@aol.com>
+ * Authors: Szymon Urbaś <szymon.urbas@aol.com>
+ *          Tomek K.     <tomicode@gmail.com>
  *
  * License: the MIT license
  *
@@ -29,6 +30,9 @@
  */
 
 #include "chatty.h"
+
+/* the clients list */
+static struct clients *clients = NULL;
 
 int server(void)
 {
@@ -70,7 +74,7 @@ int server(void)
     exit(EXIT_FAILURE);
   }
 
-  printf(" \e[0;34m*\e[0;0m listening on port %s\n", PORT);
+  printf(" \e[1;34m*\e[0;0m listening on port %s\n", PORT);
 
   /* listen to incoming connections */
   while (listen(sockfd, 10) != -1){
@@ -86,19 +90,24 @@ int server(void)
       exit(EXIT_FAILURE);
     }
     inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), ip, sizeof ip);
-    /* some output */
-    printf(" \e[0;33m*\e[0;0m got a connection from %s\n", ip);
 
     /* this is the child's process */
     if (!fork()){
       char join_msg[64];
+      char welcome_msg[64];
       close(sockfd);
+      /* recieving the join message */
       if (recv(newfd, join_msg, 64, 0) == -1){
         perror("recv");
         /*exit(EXIT_FAILURE);*/
       }
-      printf("recieved join message: %s\n", join_msg);
-      if (send(newfd, "Siedem!", 7, 0) == -1){
+      /* add the client to the clients list */
+      add_client(newfd, join_msg);
+      /* print some output */
+      printf(" \e[1;33m*\e[0;0m got a connection from %s (%s)\n", join_msg, ip);
+      /* create the welcome message */
+      sprintf(welcome_msg, "Siedem, %s!", join_msg);
+      if (send(newfd, welcome_msg, strlen(welcome_msg), 0) == -1){
         perror("send");
         /*exit(EXIT_FAILURE);*/
       }
@@ -114,4 +123,21 @@ int server(void)
   return 0;
 }
 
+void add_client(int fd, char *nick)
+{
+  struct clients *new = malloc(sizeof(struct clients));
+  if (!new){
+    perror("malloc");
+    exit(EXIT_FAILURE);
+  }
+
+  /* initialize */
+  new->fd = fd;
+  new->nick = strdup(nick);
+  new->since = time(NULL);
+
+  /* append to the list */
+  new->next = clients;
+  clients = new;
+}
 

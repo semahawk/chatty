@@ -43,14 +43,27 @@
 #include <arpa/inet.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <time.h>
 
 /* version of the Chatty */
 #define VERSION "0.1.0"
 /* the port clients will connect to (unchangeable, unless hard-coded-ingly) */
 #define PORT "1337"
 
+struct clients {
+  /* socket fd */
+  int fd;
+  /* obviously */
+  char *nick;
+  /* date at which the client has connected */
+  time_t since;
+  /* next element on the list */
+  struct clients *next;
+};
+
 int server(void);
 int client(void);
+void add_client(int fd, char *name);
 void *get_in_addr(struct sockaddr *);
 
 #endif /* CHATTY_H */
