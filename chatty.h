@@ -82,6 +82,7 @@ struct clients {
 
 int server(void);
 int client(void);
+
 void *handle_client(void *arg);
 void out(const char *msg, ...);
 void dispatch(int fd, char *msg);

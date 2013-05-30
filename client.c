@@ -93,6 +93,15 @@ int client(void)
     perror("connect");
     exit(EXIT_FAILURE);
   }
+
+  /* send the JOIN message */
+  char join[strlen(nick) + 1];
+  sprintf(join, "%c%s", MSG_JOIN, nick);
+  if (send(sockid, join, strlen(join), 0) == -1){
+    perror("send");
+    exit(EXIT_FAILURE);
+  }
+
 	thread_stat = pthread_create(&thread, &attr, reciveThread, (void *) &sockid);
 	input = malloc(sizeof(char) * 129);
 	while(mainLoop){

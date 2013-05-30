@@ -34,14 +34,41 @@
 /* the clients list */
 static struct clients *clients = NULL;
 
+/* SIGINT */
+void sigint_handler(int s)
+{
+  /* freeing the clients list */
+  struct clients *list;
+  struct clients *next;
+
+  if (clients != NULL){
+    printf("\n");
+    out("freeing the users list");
+  }
+
+  for (list = clients; list != NULL; list = next){
+    next = list->next;
+    out("closing %s's socket", list->nick);
+    close(list->fd);
+    free(list);
+  }
+
+  exit(EXIT_FAILURE);
+}
+
+/* SIGCHLD */
 void sigchld_handler(int s)
 {
-    while(waitpid(-1, NULL, WNOHANG) > 0);
+  while (waitpid(-1, NULL, WNOHANG) > 0)
+    ;
 }
 
 int server(void)
 {
-  struct sigaction sa;
+  /* the SIGCHLD signal */
+  struct sigaction sigchld;
+  /* the SIGINT signal */
+  struct sigaction sigint;
   /* socket file descriptor */
   int sockfd;
   struct addrinfo hints;
@@ -88,11 +115,20 @@ int server(void)
   }
 
   /* reap all the dead processes */
-  sa.sa_handler = sigchld_handler;
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = SA_RESTART;
-  if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+  sigchld.sa_handler = sigchld_handler;
+  sigemptyset(&sigchld.sa_mask);
+  sigchld.sa_flags = SA_RESTART;
+  if (sigaction(SIGCHLD, &sigchld, NULL) == -1){
     perror("sigaction");
+    exit(EXIT_FAILURE);
+  }
+
+  /* set the SIGINT handler */
+  sigint.sa_handler = sigint_handler;
+  sigemptyset(&sigint.sa_mask);
+  sigint.sa_flags = SA_RESTART;
+  if (sigaction(SIGINT, &sigint, NULL) == -1){
+    perror("sigint");
     exit(EXIT_FAILURE);
   }
 
@@ -136,7 +172,6 @@ int server(void)
 void *handle_client(void *arg)
 {
   int fd = *(int *)arg;
-  char send_buffer[64];
   char recv_buffer[64];
 
   while (1){
