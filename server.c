@@ -90,28 +90,23 @@ int server(void)
       exit(EXIT_FAILURE);
     }
     inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), ip, sizeof ip);
+    /* print some output */
+    printf(" \e[1;33m*\e[0;0m got a connection from %s\n", ip);
 
     /* this is the child's process */
     if (!fork()){
-      char join_msg[64];
+      char msg[64];
       char welcome_msg[64];
       close(sockfd);
       /* recieving the join message */
-      if (recv(newfd, join_msg, 64, 0) == -1){
+      if (recv(newfd, msg, 64, 0) == -1){
         perror("recv");
         /*exit(EXIT_FAILURE);*/
       }
-      /* make sure it was a join message */
-      if (join_msg[0] != MSG_JOIN){
-        fprintf(stderr, "expected a JOIN message first\n");
-        exit(EXIT_FAILURE);
-      }
-      /* add the client to the clients list */
-      add_client(newfd, join_msg);
-      /* print some output */
-      printf(" \e[1;33m*\e[0;0m got a connection from %s (%s)\n", join_msg, ip);
+      /* dispatch the message, eg. do what it tells to */
+      dispatch(newfd, msg);
       /* create the welcome message */
-      sprintf(welcome_msg, "Siedem, %s!", join_msg);
+      sprintf(welcome_msg, "Siedem, %s!", msg);
       if (send(newfd, welcome_msg, strlen(welcome_msg), 0) == -1){
         perror("send");
         /*exit(EXIT_FAILURE);*/
@@ -128,6 +123,39 @@ int server(void)
   return 0;
 }
 
+/*
+ * Looks at the messages first char and does what is supposed to
+ *
+ * fd  - socket file descriptor of the client that has sent the message
+ * msg - the message the client has sent
+ */
+void dispatch(int fd, char *msg)
+{
+  /* type of the message (eg. JOIN, regular) */
+  char type;
+  /* the message without the first char */
+  char *rest;
+  /* do anything only when the message is NOT empty */
+  if (strcmp(msg, "")){
+    type = msg[0];
+    rest = msg++;
+    switch (type){
+      case MSG_JOIN:
+        /* print some output */
+        out("user %s has joined", rest);
+        /* add the client to the clients list */
+        add_client(fd, msg);
+        break;
+      default:
+        /* TODO: forward the message to every client connected here */
+        break;
+    }
+  }
+}
+
+/*
+ * Adds a client of a given <fd> and <nick> to the clients list.
+ */
 void add_client(int fd, char *nick)
 {
   struct clients *new = malloc(sizeof(struct clients));
@@ -144,5 +172,19 @@ void add_client(int fd, char *nick)
   /* append to the list */
   new->next = clients;
   clients = new;
+}
+
+/*
+ * A handy nice little function that prints the <msg> with this little colorful
+ * asterisk prepended and a newline appended.
+ */
+void out(const char *msg, ...)
+{
+  va_list vl;
+  va_start(vl, msg);
+  printf(" \e[1;32m*\e[0;0m ");
+  vprintf(msg, vl);
+  printf("\n");
+  va_end(vl);
 }
 

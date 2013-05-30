@@ -33,6 +33,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <getopt.h>
 #include <sys/types.h>
@@ -75,6 +76,8 @@ struct clients {
 
 int server(void);
 int client(void);
+void out(const char *msg, ...);
+void dispatch(int fd, char *msg);
 void add_client(int fd, char *name);
 void *get_in_addr(struct sockaddr *);
 
