@@ -91,9 +91,16 @@ int server(void)
 
     /* this is the child's process */
     if (!fork()){
+      char join_msg[64];
       close(sockfd);
+      if (recv(newfd, join_msg, 64, 0) == -1){
+        perror("recv");
+        /*exit(EXIT_FAILURE);*/
+      }
+      printf("recieved join message: %s\n", join_msg);
       if (send(newfd, "Siedem!", 7, 0) == -1){
         perror("send");
+        /*exit(EXIT_FAILURE);*/
       }
       /*close(newfd);*/
       exit(EXIT_FAILURE);
