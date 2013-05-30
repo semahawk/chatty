@@ -1,8 +1,8 @@
 /*
  *
- * chatty.h
+ * client.c
  *
- * Created at:  Tue 28 May 2013 22:25:07 CEST 22:25:07
+ * Created at:  Thu 30 May 2013 11:46:28 CEST 11:46:28
  *
  * Author:  Szymon Urbaś <szymon.urbas@aol.com>
  *
@@ -28,30 +28,44 @@
  *
  */
 
-#ifndef CHATTY_H
-#define CHATTY_H
+#include "chatty.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <getopt.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <errno.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/wait.h>
-#include <unistd.h>
+int client(void)
+{
+  char ip[INET6_ADDRSTRLEN], buffer[256];
+  int status, sockid, byte_count;
+  struct addrinfo hints;
+  struct addrinfo *servinfo;
 
-/* version of the Chatty */
-#define VERSION "0.1.0"
-/* the port clients will connect to (unchangeable, unless hard-coded-ingly) */
-#define PORT "1337"
+  memset(&hints, 0, sizeof(hints));
+  hints.ai_family			= AF_UNSPEC;
+  hints.ai_socktype		= SOCK_STREAM;
 
-int server(void);
-int client(void);
-void *get_in_addr(struct sockaddr *);
+  printf("Client Mode - Connect\nPlease input the server IP:");
+  scanf("%s", ip);
+  if((status = getaddrinfo(ip, PORT, &hints, &servinfo)) != 0){
+    perror("getaddrinfo");
+    exit(EXIT_FAILURE);
+  }
 
-#endif /* CHATTY_H */
+  if((sockid = socket(servinfo->ai_family, servinfo->ai_socktype, 0)) == -1){
+    perror("socket");
+    exit(EXIT_FAILURE);
+  }
+
+  if((status = connect(sockid, servinfo->ai_addr, servinfo->ai_addrlen)) != 0){
+    perror("connect");
+    exit(EXIT_FAILURE);
+  }
+  memset(&buffer, 0, sizeof(buffer));
+  if((byte_count = recv(sockid, buffer, sizeof(buffer), 0)) == -1){
+    perror("recv");
+    exit(EXIT_FAILURE);
+  }
+
+  printf(" Recived data: %s\n", buffer);
+
+  freeaddrinfo(servinfo);
+  return 0;
+}
 
