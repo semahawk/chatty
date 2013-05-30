@@ -207,9 +207,11 @@ void dispatch(int fd, char *msg)
   /* do anything only when the message is NOT empty */
   if (strcmp(msg, "")){
     type = msg[0];
-    rest = msg++;
+    rest = msg;
     switch (type){
       case MSG_JOIN:
+        /* skip over the type character */
+        rest++;
         /* print some output */
         out("user %s has joined", rest);
         /* add the client to the clients list */
@@ -223,7 +225,7 @@ void dispatch(int fd, char *msg)
           exit(EXIT_FAILURE);
         }
         /* and output to the servers... output */
-        out("one of the clients says: %s\n", rest);
+        out("%s: %s", get_nick_by_fd(fd), rest);
         break;
     }
   }
@@ -248,6 +250,17 @@ void add_client(int fd, char *nick)
   /* append to the list */
   new->next = clients;
   clients = new;
+}
+
+/*
+ * Returns a nick connected with the given <fd>
+ */
+char *get_nick_by_fd(int fd)
+{
+  for (struct clients *p = clients; p != NULL; p = p->next){
+    if (p->fd, fd)
+      return p->nick;
+  }
 }
 
 /*
