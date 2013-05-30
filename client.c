@@ -59,12 +59,16 @@ int client(void)
 	char *input;
   struct addrinfo hints;
   struct addrinfo *servinfo;
-	pthread_t threads[THREADS];
+	pthread_attr_t attr;
+	pthread_t thread;
 
 	signal(SIGINT, closeHandler);
   memset(&hints, 0, sizeof(hints));
   hints.ai_family			= AF_UNSPEC;
   hints.ai_socktype		= SOCK_STREAM;
+
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
   printf("Client Mode - Connect\nPlease input the server IP:");
   scanf("%s", ip);
@@ -82,10 +86,10 @@ int client(void)
     perror("connect");
     exit(EXIT_FAILURE);
   }
-	thread_stat = pthread_create(&threads[0], NULL, reciveThread, (void *) &sockid);
+	thread_stat = pthread_create(&thread, &attr, reciveThread, (void *) &sockid);
 	input = malloc(sizeof(char) * 129);
 	while(mainLoop){
-		memset(input, 0, sizeof(input));
+		memset(input, 0, 129);
 		input = fgets(input, 128, stdin);
 		input[strlen(input) - 1] = '\0';
 		if(strlen(input) > 1){
@@ -93,7 +97,10 @@ int client(void)
 			printf(" Sended %d bytes [%s]\n", sizeof(input), input);
 		}
 	}
+	pthread_detach(thread);
+	pthread_join(thread, NULL);
 	printf(" \e[0;34mClient Closing..\e[0m\n");
+	free(input);
   freeaddrinfo(servinfo);
   return 0;
 }
