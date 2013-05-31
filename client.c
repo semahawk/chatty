@@ -95,8 +95,9 @@ int client(void)
   }
 
   /* send the JOIN message */
-  char join[strlen(nick) + 1];
-  sprintf(join, "%c%s", MSG_JOIN, nick);
+  /* 6 for "/join " and 1 for the NULL byte */
+  char join[6 + strlen(nick) + 1];
+  sprintf(join, "/join %s", nick);
   if (send(sockid, join, strlen(join), 0) == -1){
     perror("send");
     exit(EXIT_FAILURE);

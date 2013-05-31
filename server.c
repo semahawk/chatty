@@ -33,6 +33,10 @@
 
 /* the clients list */
 static struct clients *clients = NULL;
+/* server's socket file descriptor */
+static int sockfd;
+/* will point to the results */
+static struct addrinfo *servinfo;
 
 /* forward */
 static void send_to_fd(int fd, char *msg, ...);
@@ -56,6 +60,11 @@ void sigint_handler(int s)
     free(list);
   }
 
+  /* close the server's socket */
+  close(sockfd);
+  /* free the linked list */
+  freeaddrinfo(servinfo);
+
   exit(EXIT_FAILURE);
 }
 
@@ -72,11 +81,7 @@ int server(void)
   struct sigaction sigchld;
   /* the SIGINT signal */
   struct sigaction sigint;
-  /* socket file descriptor */
-  int sockfd;
   struct addrinfo hints;
-  /* will point to the results */
-  struct addrinfo *servinfo;
   /* multipurpose */
   int status;
   /* IP number of the connector */
@@ -101,20 +106,20 @@ int server(void)
 
   if ((status = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0){
     perror("getaddrinfo");
-    exit(EXIT_FAILURE);
+    return 1;
   }
 
   /* servinfo now points to a linked list of 1 or more struct addrinfos */
   /* get the socket descriptor */
   if ((sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol)) == -1){
     perror("socket");
-    exit(EXIT_FAILURE);
+    return 1;
   }
 
   /* bind to the port we passed in to getaddrinfo */
   if ((bind(sockfd, servinfo->ai_addr, servinfo->ai_addrlen)) == -1){
     perror("bind");
-    exit(EXIT_FAILURE);
+    return 1;
   }
 
   /* reap all the dead processes */
@@ -123,7 +128,7 @@ int server(void)
   sigchld.sa_flags = SA_RESTART;
   if (sigaction(SIGCHLD, &sigchld, NULL) == -1){
     perror("sigaction");
-    exit(EXIT_FAILURE);
+    return 1;
   }
 
   /* set the SIGINT handler */
@@ -132,13 +137,13 @@ int server(void)
   sigint.sa_flags = SA_RESTART;
   if (sigaction(SIGINT, &sigint, NULL) == -1){
     perror("sigint");
-    exit(EXIT_FAILURE);
+    return 1;
   }
 
   /* listen to incoming connections */
   if (listen(sockfd, MAX_PENDING) == -1){
     perror("listen");
-    exit(EXIT_FAILURE);
+    return 1;
   }
 
   printf(" \e[1;34m*\e[0;0m listening on port %s\n", PORT);
@@ -147,7 +152,6 @@ int server(void)
     /* accept the connection */
     if ((newfd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size)) == -1){
       perror("accept");
-      exit(EXIT_FAILURE);
     }
     /* get the clients IP number */
     inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), ip, sizeof ip);
@@ -157,11 +161,11 @@ int server(void)
     /* create a thread for the client */
     if (pthread_create(&client_thd, 0, handle_client, (void *)&newfd) != 0){
       perror("pthread_create");
-      exit(EXIT_FAILURE);
+      return 1;
     }
   }
 
-  /* close the socket */
+  /* close the server's socket */
   close(sockfd);
   /* free the linked list */
   freeaddrinfo(servinfo);
@@ -196,40 +200,66 @@ void *handle_client(void *arg)
 }
 
 /*
- * Looks at the messages first char and does what is supposed to
+ * Checks if the message is a command and does what it is told to do
  *
  * fd  - socket file descriptor of the client that has sent the message
  * msg - the message the client has sent
  */
 void dispatch(int fd, char *msg)
 {
-  /* type of the message (eg. JOIN, regular) */
-  char type;
-  /* the message without the first char */
-  char *rest;
-  /* do anything only when the message is NOT empty */
-  if (strcmp(msg, "")){
-    type = msg[0];
-    rest = msg;
-    switch (type){
-      case MSG_JOIN:
-        /* skip over the type character */
-        rest++;
-        /* print some output */
-        out("user %s has joined on socket %d", rest, fd);
-        /* add the client to the clients list */
-        add_client(fd, msg);
-        break;
-      default:
-        /* send the message to every client connected */
-        for (struct clients *client = clients; client != NULL; client = client->next){
-          send_to_fd(client->fd, rest);
-        }
-        /* and output to the servers... output */
-        out("%s: %s", get_nick_by_fd(fd), rest);
-        break;
+  /* copy of msg */
+  char *copy = strdup(msg);
+  /* the command, like join, list */
+  char *cmd;
+  /* some more strtok'd tokens */
+  char *token;
+  /* message delimiters for strtok */
+  const char *delims = " ";
+
+  /* don't do anything when the message is empty */
+  if (!strcmp(msg, ""))
+    goto END;
+
+  /* if a message starts with a slash, it's a command */
+  if (!strncmp(msg, "/", 1)){
+    /* get the first word, which is the command */
+    /* copy + 1 so to skip over the slash */
+    cmd = strtok(copy + 1, delims);
+    /* dispatch the command */
+    /* XXX /join */
+    if (!strcmp(cmd, "join")){
+      /* get the user's nick */
+      token = strtok(NULL, delims);
+      /* there must be nick after the /join */
+      if (!token){
+        send_to_fd(fd, "must supply a nick!");
+        goto END;
+      }
+      /* print some output */
+      out("user %s has joined on socket %d", token, fd);
+      /* add the client to the clients list */
+      add_client(fd, token);
+    }
+    /* XXX /list */
+    else if (!strcmp(cmd, "list")){
+      /* iterate through all the connected clients */
+      for (struct clients *client = clients; client != NULL; client = client->next){
+        send_to_fd(client->fd, client->nick);
+      }
     }
   }
+  /* it's just a regular message */
+  else {
+    /* send the message to every client connected */
+    for (struct clients *client = clients; client != NULL; client = client->next){
+      send_to_fd(client->fd, msg);
+    }
+    /* and output to the servers... output */
+    out("%s: %s", get_nick_by_fd(fd), msg);
+  }
+
+END:
+  free(copy);
 }
 
 /*

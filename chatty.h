@@ -59,18 +59,6 @@
 /* maximum size of the message */
 #define MAX_BUFFER_SIZE 255
 
-/*
- * Here are all the special messages.
- *
- * If the first character of a recieved message is one of the following, then
- * it's a special message.
- *
- * If the first character of a recieved message is NOT one of the following,
- * then it's just a regular message
- */
-#define MSG_JOIN 0x01
-#define MSG_TEST 0x02
-
 struct clients {
   /* socket fd */
   int fd;

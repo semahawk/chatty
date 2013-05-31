@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS := $(CFLAGS) -std=gnu99 -W -Werror -Wextra
+CFLAGS := $(CFLAGS) -g -std=gnu99 -W -Werror -Wextra
 LIBS = -pthread
 
 OBJS = $(patsubst %.c,%.o,$(wildcard *.c))
