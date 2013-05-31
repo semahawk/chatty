@@ -56,6 +56,8 @@
 /* max connections waiting in a queue */
 #define MAX_PENDING 5
 #define THREADS	1
+/* maximum size of the message */
+#define MAX_BUFFER_SIZE 255
 
 /*
  * Here are all the special messages.

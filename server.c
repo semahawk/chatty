@@ -34,6 +34,9 @@
 /* the clients list */
 static struct clients *clients = NULL;
 
+/* forward */
+static void send_to_fd(int fd, char *msg, ...);
+
 /* SIGINT */
 void sigint_handler(int s)
 {
@@ -172,13 +175,13 @@ int server(void)
 void *handle_client(void *arg)
 {
   int fd = *(int *)arg;
-  char recv_buffer[64];
+  char recv_buffer[MAX_BUFFER_SIZE];
 
   while (1){
     /* zero out the recieving buffer */
-    memset(recv_buffer, 0, 64);
+    memset(recv_buffer, 0, MAX_BUFFER_SIZE);
     /* recieve the message */
-    if (recv(fd, recv_buffer, 63, 0) != -1){
+    if (recv(fd, recv_buffer, MAX_BUFFER_SIZE - 1, 0) != -1){
       dispatch(fd, recv_buffer);
     } else {
       perror("recv");
@@ -213,16 +216,14 @@ void dispatch(int fd, char *msg)
         /* skip over the type character */
         rest++;
         /* print some output */
-        out("user %s has joined", rest);
+        out("user %s has joined on socket %d", rest, fd);
         /* add the client to the clients list */
         add_client(fd, msg);
         break;
       default:
-        /* TODO: forward the message to every client connected here */
-        /* but for now, send it back to the client */
-        if (send(fd, rest, strlen(rest), 0) == -1){
-          perror("send");
-          exit(EXIT_FAILURE);
+        /* send the message to every client connected */
+        for (struct clients *client = clients; client != NULL; client = client->next){
+          send_to_fd(client->fd, rest);
         }
         /* and output to the servers... output */
         out("%s: %s", get_nick_by_fd(fd), rest);
@@ -261,6 +262,24 @@ char *get_nick_by_fd(int fd)
     if (p->fd, fd)
       return p->nick;
   }
+}
+
+/*
+ * Send a <msg> to the client of a given <fd>
+ */
+static void send_to_fd(int fd, char *msg, ...)
+{
+  va_list vl;
+  char send_buffer[MAX_BUFFER_SIZE];
+
+  va_start(vl, msg);
+  vsprintf(send_buffer, msg, vl);
+
+  if (send(fd, send_buffer, strlen(send_buffer), 0) == -1){
+    perror("send");
+  }
+
+  va_end(vl);
 }
 
 /*

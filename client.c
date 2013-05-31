@@ -38,13 +38,13 @@ void closeHandler(int sig){
 }
 
 void *reciveThread(void *sid){
-	char recv_buffer[256];
-	int byte_count, *sockid;
+	char recv_buffer[MAX_BUFFER_SIZE];
+	int byte_count, sockid;
 	int obj_count = 5; //FOR debug only;
-	sockid = (int *) sid;
+	sockid = *(int *)sid;
 	memset(&recv_buffer, 0 , sizeof(recv_buffer));
 	while(obj_count > 0){
-		if((byte_count = recv(*sockid, recv_buffer, sizeof(recv_buffer), 0)) == -1){
+		if((byte_count = recv(sockid, recv_buffer, sizeof(recv_buffer), 0)) == -1){
 			perror("recv");
 		}
 		printf("\e[0;34mMessage:\e[0;0m%s\n", recv_buffer);
@@ -57,7 +57,7 @@ int client(void)
   /* the JOIN message that's sent first */
   char join_msg[64];
   char nick[64];
-  char ip[INET6_ADDRSTRLEN], buffer[256];
+  char ip[INET6_ADDRSTRLEN], buffer[MAX_BUFFER_SIZE];
   int status, sockid, byte_count;
 	int thread_stat;
 	char *input;
@@ -103,10 +103,10 @@ int client(void)
   }
 
 	thread_stat = pthread_create(&thread, &attr, reciveThread, (void *) &sockid);
-	input = malloc(sizeof(char) * 129);
+	input = malloc(sizeof(char) * MAX_BUFFER_SIZE);
 	while(mainLoop){
-		memset(input, 0, 129);
-		input = fgets(input, 128, stdin);
+		memset(input, 0, MAX_BUFFER_SIZE);
+		input = fgets(input, MAX_BUFFER_SIZE - 1, stdin);
 		input[strlen(input) - 1] = '\0';
 		if(strlen(input) > 1){
 			byte_count = send(sockid, input, strlen(input), 0);
@@ -120,6 +120,4 @@ int client(void)
   freeaddrinfo(servinfo);
   return 0;
 }
-
-
 
