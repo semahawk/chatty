@@ -97,8 +97,8 @@ int server(void)
 
   /* clear out the hints struct */
   memset(&hints, 0, sizeof hints);
-  /* don't care if IPv4 or IPv6 */
-  hints.ai_family =  AF_UNSPEC;
+  /* use IPv4 (screw IPv6 (at least for now)) */
+  hints.ai_family =  AF_INET;
   /* TCP stream sockets */
   hints.ai_socktype = SOCK_STREAM;
   /* fill in my IP for me */
