@@ -82,7 +82,7 @@ int client(void)
 
   signal(SIGINT, close_handler);
   memset(&hints, 0, sizeof(hints));
-  hints.ai_family			= AF_UNSPEC;
+  hints.ai_family			= AF_INET; /* use IPv4 */
   hints.ai_socktype		= SOCK_STREAM;
 
   if((client_wnd = initscr()) == NULL){ // Init the curses window.
