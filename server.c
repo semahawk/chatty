@@ -288,10 +288,9 @@ void add_client(int fd, char *nick)
  */
 char *get_nick_by_fd(int fd)
 {
-  for (struct clients *p = clients; p != NULL; p = p->next){
-    if (p->fd, fd)
+  for (struct clients *p = clients; p != NULL; p = p->next)
+    if (p->fd == fd)
       return p->nick;
-  }
 }
 
 /*

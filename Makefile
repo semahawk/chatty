@@ -1,15 +1,17 @@
 CC = gcc
-CFLAGS := $(CFLAGS) -g -std=gnu99 -W -Werror -Wextra
+CFLAGS := $(CFLAGS) -g -std=c99 -W -Werror -Wextra
 LIBS = -pthread
 
-OBJS = $(patsubst %.c,%.o,$(wildcard *.c))
+SRCS = chatty.c client.c server.c
+OBJS = $(SRCS:.c=.o)
 
 .PHONY: clean distclean
-chatty: $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o chatty $(LIBS)
 
-%.o: %.c *.h
-	$(CC) $(CFLAGS) -c $< -o $@
+chatty: $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LIBS)
+
+.c.o:
+	$(CC) -c $(CFLAGS) $<
 
 clean:
 	rm -rf *.o
