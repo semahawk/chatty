@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS := $(CFLAGS) -g -std=c99 -W -Werror -Wextra
-LIBS = -pthread
+CFLAGS := $(CFLAGS) -g -std=gnu99 -W -Werror -Wextra
+LIBS = -pthread -lncurses
 
 SRCS = chatty.c client.c server.c
 OBJS = $(SRCS:.c=.o)

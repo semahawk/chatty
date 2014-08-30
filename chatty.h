@@ -48,6 +48,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <signal.h>
+#include <curses.h>
 
 /* version of the Chatty */
 #define VERSION "0.1.0"
@@ -58,6 +59,8 @@
 #define THREADS	1
 /* maximum size of the message */
 #define MAX_BUFFER_SIZE 255
+/* maximum size of the username */
+#define MAX_NAME_SIZE 32
 
 struct clients {
   /* socket fd */
