@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
   /* used for getopt */
   int c;
   /* -s flag */
-  short run_as_server;
+  short run_as_server = 0;
 
   while ((c = getopt(argc, argv, "sv")) != -1){
     switch (c){
@@ -54,10 +54,10 @@ int main(int argc, char *argv[])
   }
 
   /* doing it server style! */
-  if (run_as_server){
+  if (run_as_server)
     return server();
-  }
-  return client();
+  else
+    return client();
 }
 
 /*
