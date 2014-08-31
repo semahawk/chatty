@@ -45,6 +45,7 @@ static void *handle_client(void *arg);
 static void out(const char *msg, ...);
 static void dispatch(int fd, struct packet packet);
 static void add_client(int fd, char *name);
+static void remove_client(int fd);
 static char *get_nick_by_fd(int fd);
 
 /* SIGINT */
@@ -190,12 +191,28 @@ static void *handle_client(void *arg)
 {
   int fd = *(int *)arg;
   struct packet recv_packet;
+  int recv_result;
 
   while (1){
     /* zero out the recieving buffer */
     memset(&recv_packet, 0, sizeof(struct packet));
-    /* recieve the message */
-    if (recv(fd, &recv_packet, sizeof(struct packet), 0) != -1){
+    /* recieve the packet */
+    recv_result = recv(fd, &recv_packet, sizeof(struct packet), 0);
+
+    if (recv_result == 0){
+      /* when `recv` returns 0 it means the connection has closed */
+      char dconn_msg[MAX_BUFFER_SIZE - MAX_NAME_SIZE - 1] = { 0 };
+
+      out("user '%s' has disconnected", get_nick_by_fd(fd));
+      snprintf(dconn_msg, sizeof(dconn_msg), "user '%s' has disconnected", get_nick_by_fd(fd));
+      remove_client(fd);
+
+      for (struct client *p = clients; p != NULL; p = p->next){
+        send_to_fd(p->fd, dconn_msg);
+      }
+
+      goto END;
+    } else if (recv_result > 0){
       dispatch(fd, recv_packet);
     } else {
       perror("recv");
@@ -203,6 +220,7 @@ static void *handle_client(void *arg)
     }
   }
 
+END:
   /* close the clients socket */
   close(fd);
 
@@ -263,6 +281,32 @@ static void add_client(int fd, char *nick)
   /* append to the list */
   new->next = clients;
   clients = new;
+}
+
+/*
+ * Remove a client from the clients list
+ */
+static void remove_client(int fd)
+{
+  struct client *curr, *prev;
+
+  for (prev = NULL, curr = clients;
+       curr != NULL && curr->fd != fd;
+       curr = curr->next, prev = curr)
+    ;
+
+  /* client not found */
+  if (curr == NULL)
+    return;
+
+  /* the client is in the first element */
+  if (prev == NULL)
+    clients = clients->next;
+  /* in some other */
+  else
+    prev->next = curr->next;
+
+  free(curr);
 }
 
 /*
