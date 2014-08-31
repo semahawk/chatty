@@ -121,6 +121,10 @@ int server(void)
     return 1;
   }
 
+  /* get rid of the "address already in use" error message */
+  int yes = 1;
+  setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+
   /* bind to the port we passed in to getaddrinfo */
   if ((bind(sockfd, servinfo->ai_addr, servinfo->ai_addrlen)) == -1){
     perror("bind");
