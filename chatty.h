@@ -57,8 +57,8 @@
 /* max connections waiting in a queue */
 #define MAX_PENDING 5
 #define THREADS	1
-/* maximum size of the message */
-#define MAX_BUFFER_SIZE 255
+/* maximum size of a data packet */
+#define MAX_BUFFER_SIZE 256
 /* maximum size of the username */
 #define MAX_NAME_SIZE 32
 
@@ -71,6 +71,31 @@ struct clients {
   time_t since;
   /* next element on the list */
   struct clients *next;
+};
+
+/* `packet_type` */
+#define PACKET_MSG         0x01
+#define PACKET_CMD         0x02
+
+/* `cmd_type` */
+#define CMD_JOIN           0x01
+#define CMD_LIST           0x02
+
+struct packet {
+  unsigned char packet_type;
+  union {
+    struct {
+      char username[MAX_NAME_SIZE];
+      /* the minus 1 is because of `data_type` */
+      char message[MAX_BUFFER_SIZE - MAX_NAME_SIZE - 1];
+    } msg;
+
+    struct {
+      unsigned char cmd_type;
+      /* `MAX_BUFFER_SIZE` minus `data_type` minus `cmd_type` */
+      char args[MAX_BUFFER_SIZE - 2];
+    } cmd;
+  } data;
 };
 
 int server(void);
