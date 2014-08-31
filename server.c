@@ -255,15 +255,19 @@ char *get_nick_by_fd(int fd)
 /*
  * Send a <msg> to the client of a given <fd>
  */
-static void send_to_fd(int fd, char *msg, ...)
+static void send_to_fd(int fd, char *fmt, ...)
 {
   va_list vl;
-  char send_buffer[MAX_BUFFER_SIZE];
+  /* the packet to be sent to the client */
+  struct packet packet;
 
-  va_start(vl, msg);
-  vsprintf(send_buffer, msg, vl);
+  packet.type = PACKET_MSG;
+  strcpy(packet.msg.username, "SERVER");
 
-  if (send(fd, send_buffer, strlen(send_buffer), 0) == -1){
+  va_start(vl, fmt);
+  vsnprintf(packet.msg.message, sizeof(packet.msg.message), packet.msg.message, vl);
+
+  if (send(fd, &packet, sizeof(packet), 0) == -1){
     perror("send");
   }
 
