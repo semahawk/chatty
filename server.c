@@ -221,7 +221,20 @@ static void dispatch(int fd, struct packet packet)
     /* and output to the servers... output */
     out("%s: %s\n", packet.msg.username, packet.msg.message);
   } else if (packet.type == PACKET_CMD){
-    printf("issued a command '%d'\n", packet.cmd.type);
+    switch (packet.cmd.type){
+      case CMD_JOIN:
+        add_client(fd, packet.cmd.args);
+
+        char join_msg[MAX_BUFFER_SIZE - MAX_NAME_SIZE - 1];
+        snprintf(join_msg, MAX_BUFFER_SIZE - MAX_NAME_SIZE - 1, "user '%s' has joined", packet.cmd.args);
+        /* broadcast the message about a joining client */
+        for (struct client *client = clients; client != NULL; client = client->next){
+          send_to_fd(client->fd, join_msg);
+        }
+        break;
+      default:
+        break;
+    }
   }
 }
 
@@ -270,7 +283,7 @@ static void send_to_fd(int fd, char *fmt, ...)
   strcpy(packet.msg.username, "SERVER");
 
   va_start(vl, fmt);
-  vsnprintf(packet.msg.message, sizeof(packet.msg.message), packet.msg.message, vl);
+  vsnprintf(packet.msg.message, sizeof(packet.msg.message), fmt, vl);
 
   if (send(fd, &packet, sizeof(packet), 0) == -1){
     perror("send");
