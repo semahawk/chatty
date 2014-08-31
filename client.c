@@ -40,33 +40,34 @@ static WINDOW * status_wnd;
 // Function prototypes.
 int client_handler(void);
 
-void close_handler(int sig){
+void close_handler(int sig)
+{
   recivethread_active = false;
 }
 
-void *reciveThread(void *sid){
+void *reciveThread(void *sid)
+{
   struct packet recv_packet;
-	int byte_count, sockid;
+  int byte_count, sockid;
 
-	sockid = *(int *)sid;
-	while(recivethread_active){
+  sockid = *(int *)sid;
+  while(recivethread_active){
     usleep(100000);
-
     if(!recivethread_active)
       break; // To aviod error on closed socket.
 
-		if((byte_count = recv(sockid, &recv_packet, sizeof(struct packet), MSG_DONTWAIT)) == -1){
-			if(errno == EWOULDBLOCK){ // When no data is on the input stream.
+    if((byte_count = recv(sockid, &recv_packet, sizeof(struct packet), MSG_DONTWAIT)) == -1){
+      if(errno == EWOULDBLOCK){ // When no data is on the input stream.
         continue;
       }
       perror("recv");
       break;
-		}
+    }
     wprintw(message_wnd, "%s: %s\n", recv_packet.msg.username, recv_packet.msg.message);
-    refresh();
+    wrefresh(message_wnd);
 
     memset(&recv_packet, 0 , sizeof(struct packet));
-	}
+  }
   pthread_exit(NULL);
 }
 
@@ -128,8 +129,8 @@ int client_handler()
   pthread_t thread;
 
   memset(&hints, 0, sizeof(hints));
-  hints.ai_family			= AF_INET; /* use IPv4 */
-  hints.ai_socktype		= SOCK_STREAM;
+  hints.ai_family     = AF_INET; /* use IPv4 */
+  hints.ai_socktype   = SOCK_STREAM;
 
   keypad(input_wnd, true); // Get all function keys from the keyboard.
   init_colors();
@@ -152,6 +153,12 @@ int client_handler()
     return EXIT_FAILURE;
   }
 
+  wattron(status_wnd, A_BOLD);
+  wprintw(status_wnd, " %s ", nick);
+
+  wattroff(status_wnd, A_BOLD);
+  wprintw(status_wnd, " IP: %s", ip);
+  wrefresh(status_wnd);
   // Client packet for connecting the server.
   client_packet.type = PACKET_CMD;
   client_packet.cmd.type = CMD_JOIN;
@@ -161,10 +168,10 @@ int client_handler()
     return EXIT_FAILURE;
   }
 
-	if(pthread_create(&thread, NULL, reciveThread, (void *) &sockid)){
+  if(pthread_create(&thread, NULL, reciveThread, (void *) &sockid)){
     return EXIT_FAILURE;
   }
-	while(true){
+  while(true){
     memset(&client_packet, 0, sizeof(struct packet));
     client_packet.type = PACKET_MSG;
     wgetstr(input_wnd, client_packet.msg.message);
@@ -175,12 +182,12 @@ int client_handler()
       memset(&client_packet, 0, sizeof(struct packet));
       break;
     }
-		if(strlen(client_packet.msg.message)){
-			byte_count = send(sockid, &client_packet, sizeof(struct packet), 0);
+    if(strlen(client_packet.msg.message)){
+      byte_count = send(sockid, &client_packet, sizeof(struct packet), 0);
       wprintw(message_wnd, "Send %lu bytes [%d]\n", sizeof(struct packet), byte_count);
       wrefresh(message_wnd);
-		}
-	}
+    }
+  }
 
   recivethread_active = false; // Close reciving thread.
   close(sockid); // And close the socket.
