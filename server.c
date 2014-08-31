@@ -32,7 +32,7 @@
 #include "chatty.h"
 
 /* the clients list */
-static struct clients *clients = NULL;
+static struct client *clients = NULL;
 /* server's socket file descriptor */
 static int sockfd;
 /* will point to the results */
@@ -45,8 +45,8 @@ static void send_to_fd(int fd, char *msg, ...);
 void sigint_handler(int s)
 {
   /* freeing the clients list */
-  struct clients *list;
-  struct clients *next;
+  struct client *list;
+  struct client *next;
 
   if (clients != NULL){
     printf("\n");
@@ -243,7 +243,7 @@ void dispatch(int fd, char *msg)
     /* XXX /list */
     else if (!strcmp(cmd, "list")){
       /* iterate through all the connected clients */
-      for (struct clients *client = clients; client != NULL; client = client->next){
+      for (struct client *client = clients; client != NULL; client = client->next){
         send_to_fd(client->fd, client->nick);
       }
     }
@@ -251,7 +251,7 @@ void dispatch(int fd, char *msg)
   /* it's just a regular message */
   else {
     /* send the message to every client connected */
-    for (struct clients *client = clients; client != NULL; client = client->next){
+    for (struct client *client = clients; client != NULL; client = client->next){
       send_to_fd(client->fd, msg);
     }
     /* and output to the servers... output */
@@ -267,7 +267,8 @@ END:
  */
 void add_client(int fd, char *nick)
 {
-  struct clients *new = malloc(sizeof(struct clients));
+  struct client *new = malloc(sizeof(struct client));
+
   if (!new){
     perror("malloc");
     exit(EXIT_FAILURE);
@@ -288,7 +289,7 @@ void add_client(int fd, char *nick)
  */
 char *get_nick_by_fd(int fd)
 {
-  for (struct clients *p = clients; p != NULL; p = p->next)
+  for (struct client *p = clients; p != NULL; p = p->next)
     if (p->fd == fd)
       return p->nick;
 }

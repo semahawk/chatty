@@ -62,7 +62,7 @@
 /* maximum size of the username */
 #define MAX_NAME_SIZE 32
 
-struct clients {
+struct client {
   /* socket fd */
   int fd;
   /* obviously */
@@ -70,7 +70,7 @@ struct clients {
   /* date at which the client has connected */
   time_t since;
   /* next element on the list */
-  struct clients *next;
+  struct client *next;
 };
 
 /* `packet_type` */
