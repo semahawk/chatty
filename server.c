@@ -40,6 +40,7 @@ static struct addrinfo *servinfo;
 
 /* forward */
 static void send_to_fd(int fd, char *msg, ...);
+static void send_packet_to_fd(int fd, struct packet packet);
 static void *handle_client(void *arg);
 static void out(const char *msg, ...);
 static void dispatch(int fd, struct packet packet);
@@ -219,7 +220,7 @@ static void dispatch(int fd, struct packet packet)
   if (packet.type == PACKET_MSG){
     /* send the message to every client connected */
     for (struct client *client = clients; client != NULL; client = client->next){
-      send_to_fd(client->fd, packet.msg.message);
+      send_packet_to_fd(client->fd, packet);
     }
 
     /* and output to the servers... output */
@@ -275,7 +276,7 @@ static char *get_nick_by_fd(int fd)
 }
 
 /*
- * Send a <msg> to the client of a given <fd>
+ * Send a formatted message to the client of a given <fd>
  */
 static void send_to_fd(int fd, char *fmt, ...)
 {
@@ -294,6 +295,16 @@ static void send_to_fd(int fd, char *fmt, ...)
   }
 
   va_end(vl);
+}
+
+/*
+ * Sends a <packet> to a client of a given <fd>
+ */
+static void send_packet_to_fd(int fd, struct packet packet)
+{
+  if (send(fd, &packet, sizeof(packet), 0) == -1){
+    perror("send_packet");
+  }
 }
 
 /*
