@@ -179,14 +179,14 @@ int server(void)
 void *handle_client(void *arg)
 {
   int fd = *(int *)arg;
-  char recv_buffer[MAX_BUFFER_SIZE];
+  struct packet recv_packet;
 
   while (1){
     /* zero out the recieving buffer */
-    memset(recv_buffer, 0, MAX_BUFFER_SIZE);
+    memset(&recv_packet, 0, sizeof(struct packet));
     /* recieve the message */
-    if (recv(fd, recv_buffer, MAX_BUFFER_SIZE - 1, 0) != -1){
-      dispatch(fd, recv_buffer);
+    if (recv(fd, &recv_packet, sizeof(struct packet), 0) != -1){
+      dispatch(fd, recv_packet);
     } else {
       perror("recv");
       exit(EXIT_FAILURE);
@@ -205,61 +205,19 @@ void *handle_client(void *arg)
  * fd  - socket file descriptor of the client that has sent the message
  * msg - the message the client has sent
  */
-void dispatch(int fd, char *msg)
+void dispatch(int fd, struct packet packet)
 {
-  /* copy of msg */
-  char *copy = strdup(msg);
-  /* the command, like join, list */
-  char *cmd;
-  /* some more strtok'd tokens */
-  char *token;
-  /* message delimiters for strtok */
-  const char *delims = " ";
-
-  /* don't do anything when the message is empty */
-  if (!strcmp(msg, ""))
-    goto END;
-
-  /* if a message starts with a slash, it's a command */
-  if (!strncmp(msg, "/", 1)){
-    /* get the first word, which is the command */
-    /* copy + 1 so to skip over the slash */
-    cmd = strtok(copy + 1, delims);
-    /* dispatch the command */
-    /* XXX /join */
-    if (!strcmp(cmd, "join")){
-      /* get the user's nick */
-      token = strtok(NULL, delims);
-      /* there must be nick after the /join */
-      if (!token){
-        send_to_fd(fd, "must supply a nick!");
-        goto END;
-      }
-      /* print some output */
-      out("user %s has joined on socket %d", token, fd);
-      /* add the client to the clients list */
-      add_client(fd, token);
-    }
-    /* XXX /list */
-    else if (!strcmp(cmd, "list")){
-      /* iterate through all the connected clients */
-      for (struct client *client = clients; client != NULL; client = client->next){
-        send_to_fd(client->fd, client->nick);
-      }
-    }
-  }
-  /* it's just a regular message */
-  else {
+  if (packet.type == PACKET_MSG){
     /* send the message to every client connected */
     for (struct client *client = clients; client != NULL; client = client->next){
-      send_to_fd(client->fd, msg);
+      send_to_fd(client->fd, packet.msg.message);
     }
-    /* and output to the servers... output */
-    out("%s: %s", get_nick_by_fd(fd), msg);
-  }
 
-END:
-  free(copy);
+    /* and output to the servers... output */
+    out("%s: %s\n", packet.msg.username, packet.msg.message);
+  } else if (packet.type == PACKET_CMD){
+    printf("issued a command '%d'\n", packet.cmd.type);
+  }
 }
 
 /*
