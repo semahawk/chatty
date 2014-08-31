@@ -101,11 +101,6 @@ struct packet {
 int server(void);
 int client(void);
 
-void *handle_client(void *arg);
-void out(const char *msg, ...);
-void dispatch(int fd, struct packet packet);
-void add_client(int fd, char *name);
-char *get_nick_by_fd(int fd);
 void *get_in_addr(struct sockaddr *);
 
 #endif /* CHATTY_H */

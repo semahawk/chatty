@@ -40,6 +40,11 @@ static struct addrinfo *servinfo;
 
 /* forward */
 static void send_to_fd(int fd, char *msg, ...);
+static void *handle_client(void *arg);
+static void out(const char *msg, ...);
+static void dispatch(int fd, struct packet packet);
+static void add_client(int fd, char *name);
+static char *get_nick_by_fd(int fd);
 
 /* SIGINT */
 void sigint_handler(int s)
@@ -176,7 +181,7 @@ int server(void)
 /*
  * Thread function to recieve and send messages to the client
  */
-void *handle_client(void *arg)
+static void *handle_client(void *arg)
 {
   int fd = *(int *)arg;
   struct packet recv_packet;
@@ -205,7 +210,7 @@ void *handle_client(void *arg)
  * fd  - socket file descriptor of the client that has sent the message
  * msg - the message the client has sent
  */
-void dispatch(int fd, struct packet packet)
+static void dispatch(int fd, struct packet packet)
 {
   if (packet.type == PACKET_MSG){
     /* send the message to every client connected */
@@ -223,7 +228,7 @@ void dispatch(int fd, struct packet packet)
 /*
  * Adds a client of a given <fd> and <nick> to the clients list.
  */
-void add_client(int fd, char *nick)
+static void add_client(int fd, char *nick)
 {
   struct client *new = malloc(sizeof(struct client));
 
@@ -245,7 +250,7 @@ void add_client(int fd, char *nick)
 /*
  * Returns a nick connected with the given <fd>
  */
-char *get_nick_by_fd(int fd)
+static char *get_nick_by_fd(int fd)
 {
   for (struct client *p = clients; p != NULL; p = p->next)
     if (p->fd == fd)
@@ -278,7 +283,7 @@ static void send_to_fd(int fd, char *fmt, ...)
  * A handy nice little function that prints the <msg> with this little colorful
  * asterisk prepended and a newline appended.
  */
-void out(const char *msg, ...)
+static void out(const char *msg, ...)
 {
   va_list vl;
   va_start(vl, msg);
