@@ -82,7 +82,7 @@ struct client {
 #define CMD_LIST           0x02
 
 struct packet {
-  unsigned char packet_type;
+  unsigned char type;
   union {
     struct {
       char username[MAX_NAME_SIZE];
@@ -91,11 +91,11 @@ struct packet {
     } msg;
 
     struct {
-      unsigned char cmd_type;
+      unsigned char type;
       /* `MAX_BUFFER_SIZE` minus `data_type` minus `cmd_type` */
       char args[MAX_BUFFER_SIZE - 2];
     } cmd;
-  } data;
+  };
 };
 
 int server(void);
