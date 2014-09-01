@@ -39,11 +39,13 @@ static int sockfd;
 static struct addrinfo *servinfo;
 
 /* forward */
-static void send_to_fd(int fd, char *msg, ...);
-static void send_packet_to_fd(int fd, struct packet packet);
+static void send_to_fd(int fd, char *fmt, ...);
+static void send_packet_to_fd(int fd, struct packet);
+static void broadcast(const char *fmt, ...);
+static void broadcast_packet(struct packet);
 static void *handle_client(void *arg);
-static void out(const char *msg, ...);
-static void dispatch(int fd, struct packet packet);
+static void out(const char *fmt, ...);
+static void dispatch(int fd, struct packet);
 static void add_client(int fd, char *name);
 static void remove_client(int fd);
 static char *get_nick_by_fd(int fd);
@@ -201,17 +203,11 @@ static void *handle_client(void *arg)
 
     if (recv_result == 0){
       /* when `recv` returns 0 it means the connection has closed */
-      char dconn_msg[MAX_BUFFER_SIZE - MAX_NAME_SIZE - 1] = { 0 };
-
       out("user '%s' has disconnected", get_nick_by_fd(fd));
-      snprintf(dconn_msg, sizeof(dconn_msg), "user '%s' has disconnected", get_nick_by_fd(fd));
+      broadcast("user '%s' has disconnected", get_nick_by_fd(fd));
       remove_client(fd);
 
-      for (struct client *p = clients; p != NULL; p = p->next){
-        send_to_fd(p->fd, dconn_msg);
-      }
-
-      goto END;
+      break;
     } else if (recv_result > 0){
       dispatch(fd, recv_packet);
     } else {
@@ -220,7 +216,6 @@ static void *handle_client(void *arg)
     }
   }
 
-END:
   /* close the clients socket */
   close(fd);
 
@@ -237,23 +232,15 @@ static void dispatch(int fd, struct packet packet)
 {
   if (packet.type == PACKET_MSG){
     /* send the message to every client connected */
-    for (struct client *client = clients; client != NULL; client = client->next){
-      send_packet_to_fd(client->fd, packet);
-    }
-
+    broadcast_packet(packet);
     /* and output to the servers... output */
     out("%s: %s\n", packet.msg.username, packet.msg.message);
   } else if (packet.type == PACKET_CMD){
     switch (packet.cmd.type){
       case CMD_JOIN:
         add_client(fd, packet.cmd.args);
-
-        char join_msg[MAX_BUFFER_SIZE - MAX_NAME_SIZE - 1];
-        snprintf(join_msg, MAX_BUFFER_SIZE - MAX_NAME_SIZE - 1, "user '%s' has joined", packet.cmd.args);
-        /* broadcast the message about a joining client */
-        for (struct client *client = clients; client != NULL; client = client->next){
-          send_to_fd(client->fd, join_msg);
-        }
+        /* inform all the other users about a joining client */
+        broadcast("user '%s' has joined", packet.cmd.args);
         break;
       default:
         break;
@@ -329,7 +316,7 @@ static void send_to_fd(int fd, char *fmt, ...)
   struct packet packet;
 
   packet.type = PACKET_MSG;
-  strcpy(packet.msg.username, "SERVER");
+  strncpy(packet.msg.username, "SERVER", MAX_NAME_SIZE);
 
   va_start(vl, fmt);
   vsnprintf(packet.msg.message, sizeof(packet.msg.message), fmt, vl);
@@ -348,6 +335,41 @@ static void send_packet_to_fd(int fd, struct packet packet)
 {
   if (send(fd, &packet, sizeof(packet), 0) == -1){
     perror("send_packet");
+  }
+}
+
+/*
+ * Send a formatted message to every connected client.
+ */
+static void broadcast(const char *fmt, ...)
+{
+  va_list vl;
+  struct packet packet;
+
+  va_start(vl, fmt);
+
+  packet.type = PACKET_MSG;
+  strncpy(packet.msg.username, "SERVER", MAX_NAME_SIZE);
+  vsnprintf(packet.msg.message, sizeof(packet.msg.message), fmt, vl);
+
+  for (struct client *client = clients; client != NULL; client = client->next){
+    if (send(client->fd, &packet, sizeof(packet), 0) == -1){
+      perror("send");
+    }
+  }
+
+  va_end(vl);
+}
+
+/*
+ * Broadcast (forward) a <packet> to every connected client.
+ */
+static void broadcast_packet(struct packet packet)
+{
+  for (struct client *client = clients; client != NULL; client = client->next){
+    if (send(client->fd, &packet, sizeof(packet), 0) == -1){
+      perror("send_packet");
+    }
   }
 }
 
