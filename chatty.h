@@ -79,9 +79,13 @@ struct client {
 /* a packet (message) returned from the server */
 #define PACKET_SRV         0x03
 
-/* `cmd.type` */
+/* `packet.cmd.type` */
 #define CMD_JOIN           0x01
 #define CMD_LIST           0x02
+
+/* `packet.srv.error` */
+#define SRV_NOERR          0
+#define SRV_ERR            1
 
 struct packet {
   unsigned char type;
@@ -94,13 +98,15 @@ struct packet {
 
     struct {
       unsigned char type;
-      /* `MAX_BUFFER_SIZE` minus `packet.type` minus `cmd.type` */
+      /* `MAX_BUFFER_SIZE` minus `packet.type` minus `packet.cmd.type` */
       char args[MAX_BUFFER_SIZE - 2];
     } cmd;
 
     struct {
-      /* .. minus `packet.type` */
-      char message[MAX_BUFFER_SIZE - 1];
+      /* SRV_NOERR or SRV_ERR */
+      unsigned char error;
+      /* .. minus `packet.type` minus `packet.srv.error` */
+      char message[MAX_BUFFER_SIZE - 2];
     } srv;
   };
 };

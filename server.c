@@ -39,7 +39,7 @@ static int sockfd;
 static struct addrinfo *servinfo;
 
 /* forward */
-static void send_to_fd(int fd, char *fmt, ...);
+static void send_to_fd(int fd, bool err, char *fmt, ...);
 static void send_packet_to_fd(int fd, struct packet);
 static void broadcast(const char *fmt, ...);
 static void broadcast_packet(struct packet);
@@ -309,13 +309,14 @@ static char *get_nick_by_fd(int fd)
 /*
  * Send a formatted message to the client of a given <fd>
  */
-static void send_to_fd(int fd, char *fmt, ...)
+static void send_to_fd(int fd, bool error, char *fmt, ...)
 {
   va_list vl;
   /* the packet to be sent to the client */
   struct packet packet;
 
   packet.type = PACKET_SRV;
+  packet.srv.error = error;
 
   va_start(vl, fmt);
   vsnprintf(packet.srv.message, sizeof(packet.srv.message), fmt, vl);
@@ -346,6 +347,7 @@ static void broadcast(const char *fmt, ...)
   struct packet packet;
 
   packet.type = PACKET_SRV;
+  packet.srv.error = SRV_NOERR;
 
   va_start(vl, fmt);
   vsnprintf(packet.srv.message, sizeof(packet.srv.message), fmt, vl);
