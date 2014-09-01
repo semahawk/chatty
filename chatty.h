@@ -73,11 +73,13 @@ struct client {
   struct client *next;
 };
 
-/* `packet_type` */
+/* `packet.type` */
 #define PACKET_MSG         0x01
 #define PACKET_CMD         0x02
+/* a packet (message) returned from the server */
+#define PACKET_SRV         0x03
 
-/* `cmd_type` */
+/* `cmd.type` */
 #define CMD_JOIN           0x01
 #define CMD_LIST           0x02
 
@@ -86,15 +88,20 @@ struct packet {
   union {
     struct {
       char username[MAX_NAME_SIZE];
-      /* the minus 1 is because of `data_type` */
+      /* the minus 1 is because of `packet.type` */
       char message[MAX_BUFFER_SIZE - MAX_NAME_SIZE - 1];
     } msg;
 
     struct {
       unsigned char type;
-      /* `MAX_BUFFER_SIZE` minus `data_type` minus `cmd_type` */
+      /* `MAX_BUFFER_SIZE` minus `packet.type` minus `cmd.type` */
       char args[MAX_BUFFER_SIZE - 2];
     } cmd;
+
+    struct {
+      /* .. minus `packet.type` */
+      char message[MAX_BUFFER_SIZE - 1];
+    } srv;
   };
 };
 

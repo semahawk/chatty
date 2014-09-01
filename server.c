@@ -315,11 +315,10 @@ static void send_to_fd(int fd, char *fmt, ...)
   /* the packet to be sent to the client */
   struct packet packet;
 
-  packet.type = PACKET_MSG;
-  strncpy(packet.msg.username, "SERVER", MAX_NAME_SIZE);
+  packet.type = PACKET_SRV;
 
   va_start(vl, fmt);
-  vsnprintf(packet.msg.message, sizeof(packet.msg.message), fmt, vl);
+  vsnprintf(packet.srv.message, sizeof(packet.srv.message), fmt, vl);
 
   if (send(fd, &packet, sizeof(packet), 0) == -1){
     perror("send");
@@ -329,7 +328,7 @@ static void send_to_fd(int fd, char *fmt, ...)
 }
 
 /*
- * Sends a <packet> to a client of a given <fd>
+ * Sends (forwards) a <packet> to a client of a given <fd>
  */
 static void send_packet_to_fd(int fd, struct packet packet)
 {
@@ -346,11 +345,10 @@ static void broadcast(const char *fmt, ...)
   va_list vl;
   struct packet packet;
 
-  va_start(vl, fmt);
+  packet.type = PACKET_SRV;
 
-  packet.type = PACKET_MSG;
-  strncpy(packet.msg.username, "SERVER", MAX_NAME_SIZE);
-  vsnprintf(packet.msg.message, sizeof(packet.msg.message), fmt, vl);
+  va_start(vl, fmt);
+  vsnprintf(packet.srv.message, sizeof(packet.srv.message), fmt, vl);
 
   for (struct client *client = clients; client != NULL; client = client->next){
     if (send(client->fd, &packet, sizeof(packet), 0) == -1){
