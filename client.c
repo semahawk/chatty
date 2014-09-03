@@ -298,7 +298,7 @@ bool read_client_console(unsigned char * buffer, bool command)
 int command_expand(char * buffer, char * command, char * arg)
 {
   bool current_cmd = true;
-  int arg_begining;
+  int arg_begining = 0;
   if(strlen(buffer) == 0){
     return -1;
   }
