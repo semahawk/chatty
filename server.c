@@ -293,6 +293,7 @@ static void remove_client(int fd)
   else
     prev->next = curr->next;
 
+  free(curr->nick);
   free(curr);
 }
 
