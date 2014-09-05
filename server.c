@@ -31,12 +31,10 @@
 
 #include "chatty.h"
 
-/* the clients list */
+/* the connected clients list */
 static struct client *clients = NULL;
 /* server's socket file descriptor */
 static int sockfd;
-/* will point to the results */
-static struct addrinfo *servinfo;
 
 /* forward */
 static void send_to_fd(int fd, bool err, char *fmt, ...);
@@ -49,32 +47,13 @@ static void dispatch(int fd, struct packet);
 static void add_client(int fd, char *name);
 static void remove_client(int fd);
 static char *get_nick_by_fd(int fd);
+static int server_fini(void);
 
 /* SIGINT */
 void sigint_handler(int s)
 {
-  /* freeing the clients list */
-  struct client *list;
-  struct client *next;
-
-  if (clients != NULL){
-    printf("\n");
-    out("freeing the users list");
-  }
-
-  for (list = clients; list != NULL; list = next){
-    next = list->next;
-    out("closing %s's socket", list->nick);
-    close(list->fd);
-    free(list);
-  }
-
-  /* close the server's socket */
-  close(sockfd);
-  /* free the linked list */
-  freeaddrinfo(servinfo);
-
-  exit(EXIT_FAILURE);
+  server_fini();
+  exit(EXIT_SUCCESS);
 }
 
 /* SIGCHLD */
@@ -82,6 +61,29 @@ void sigchld_handler(int s)
 {
   while (waitpid(-1, NULL, WNOHANG) > 0)
     ;
+}
+
+/*
+ * The `server` returns the value returned here.
+ */
+static int server_fini(void)
+{
+  struct client *curr, *next;
+
+  if (clients != NULL){
+    out("freeing the users list");
+  }
+
+  for (curr = clients; curr != NULL; curr = next){
+    next = curr->next;
+    out("closing %s's socket", curr->nick);
+    remove_client(curr->fd);
+  }
+
+  /* close the server's socket */
+  close(sockfd);
+
+  return 0;
 }
 
 int server(void)
@@ -103,6 +105,8 @@ int server(void)
   socklen_t addr_size = sizeof their_addr;
   /* thread for the client */
   pthread_t client_thd;
+  /* will point to the results */
+  struct addrinfo *servinfo;
 
   /* clear out the hints struct */
   memset(&hints, 0, sizeof hints);
@@ -135,6 +139,9 @@ int server(void)
     return 1;
   }
 
+  /* free the linked list, we don't need it nomore */
+  freeaddrinfo(servinfo);
+
   /* reap all the dead processes */
   sigchld.sa_handler = sigchld_handler;
   sigemptyset(&sigchld.sa_mask);
@@ -165,6 +172,7 @@ int server(void)
     /* accept the connection */
     if ((newfd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size)) == -1){
       perror("accept");
+      continue;
     }
     /* get the clients IP number */
     inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), ip, sizeof ip);
@@ -178,12 +186,7 @@ int server(void)
     }
   }
 
-  /* close the server's socket */
-  close(sockfd);
-  /* free the linked list */
-  freeaddrinfo(servinfo);
-
-  return 0;
+  return server_fini();
 }
 
 /*
