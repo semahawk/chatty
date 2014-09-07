@@ -33,6 +33,7 @@
 #define CLIENT_INSERT 0x02
 #define CLIENT_COMMAND 0x03
 #define KEY_ESCAPE 27
+#define MAX_DATA_SIZE 32
 
 #include "chatty.h"
 #include <locale.h>
@@ -43,30 +44,72 @@ typedef struct {
   int cols;
 } WINDOW_SIZE;
 
+struct client_str {
+  char nick[MAX_NAME_SIZE];
+  char ip[INET_ADDRSTRLEN];
+  unsigned char mode;
+  int socket;
+};
+
 static bool recivethread_active = true;
 static WINDOW * message_wnd;
 static WINDOW * input_wnd;
 static WINDOW * status_wnd;
+static WINDOW * system_wnd;
 
 // Function prototypes.
 bool read_client_console(unsigned char * buffer, bool command);
 int client_handler(void);
 int client_connect(char * ip_address, char * username);
+int command_expand(char * buffer, char * arg);
 int message_to_server(int socket, char * username, char * message);
-int command_expand(char * buffer, char * command, char * arg);
 
 void close_handler(int sig)
 {
   recivethread_active = false;
 }
 
-void switch_client_mode(unsigned char mode)
+void update_status_window(struct client_str * client)
+{ 
+  if(client->mode == CLIENT_INSERT){
+    wbkgd(status_wnd, COLOR_PAIR(13)); 
+  }else{
+    wbkgd(status_wnd, COLOR_PAIR(10)); 
+  }
+  werase(status_wnd);
+  if(client->mode == CLIENT_INSERT){
+    wattron(status_wnd, COLOR_PAIR(15) | A_BOLD);
+    waddstr(status_wnd, " INSERT ");
+    wattroff(status_wnd, COLOR_PAIR(15) | A_BOLD);
+    wattron(status_wnd, COLOR_PAIR(14) | A_BOLD);
+  }else if(client->mode == CLIENT_COMMAND || client->mode == CLIENT_IDLE){
+    wattron(status_wnd, COLOR_PAIR(12) | A_BOLD);
+    waddstr(status_wnd, " NORMAL ");
+    wattroff(status_wnd, COLOR_PAIR(12) | A_BOLD);
+    wattron(status_wnd, COLOR_PAIR(11) | A_BOLD);
+  }
+  wprintw(status_wnd, " %s ", client->nick);
+  if(client->mode == CLIENT_INSERT){
+    wattroff(status_wnd, COLOR_PAIR(11) | A_BOLD);
+  }else{
+    wattroff(status_wnd, COLOR_PAIR(14) | A_BOLD);
+  }
+  
+  if(strlen(client->ip) > 0){
+    wprintw(status_wnd, " connected: %s ", client->ip);
+  }else{
+    waddstr(status_wnd, " not connected ");
+  }
+  wrefresh(status_wnd);
+  wrefresh(input_wnd);
+}
+
+void switch_client_mode(struct client_str * client)
 {
-  wprintw(status_wnd, " [%d] ", mode);
-  if(mode == CLIENT_INSERT | mode == CLIENT_COMMAND){
+  if(client->mode == CLIENT_INSERT | client->mode == CLIENT_COMMAND){
     echo(); // Show what user is typping in.
     curs_set(1);
-    if(mode == CLIENT_COMMAND){
+    if(client->mode == CLIENT_COMMAND){
       wprintw(input_wnd, ":"); // Add semicolon to the input box.
     }
   }else{
@@ -74,8 +117,32 @@ void switch_client_mode(unsigned char mode)
     curs_set(0);
     werase(input_wnd); // Clear the input box.
   }
-  wrefresh(status_wnd);
-  wrefresh(input_wnd); 
+  update_status_window(client);
+}
+
+void print_line(int color_p, char * out, char * format, ...)
+{
+  char msg[64];
+  int char_num;
+  va_list args;
+  
+  int a, b;
+
+  va_start(args, format);
+  char_num = vsnprintf(msg, 64, format, args);
+  wattron(message_wnd, COLOR_PAIR(color_p) | A_BOLD);
+  if(out == NULL){
+    wprintw(message_wnd, " chatty: ");
+  }else{
+    wprintw(message_wnd, " %s: ", out);
+  }
+  wattroff(message_wnd, A_BOLD);
+  wprintw(message_wnd, "%s\n", msg);
+  wattroff(message_wnd, COLOR_PAIR(color_p));
+  wrefresh(message_wnd);
+  wrefresh(input_wnd);
+
+  va_end(args);
 }
 
 void *reciveThread(void *sid)
@@ -93,15 +160,18 @@ void *reciveThread(void *sid)
       if(errno == EWOULDBLOCK){ // When no data is on the input stream.
         continue;
       }
-      wprintw(message_wnd, "Error on recv: %s [%d]\n", strerror(errno), sockid);
-      wrefresh(message_wnd);
-      wrefresh(input_wnd);
-      //perror("recv");
+      print_line(3, "recv", "Error: %s, socket: %d", strerror(errno));
       break;
     }
-    wprintw(message_wnd, "%s: %s\n", recv_packet.msg.username, recv_packet.msg.message);
-    wrefresh(message_wnd);
-    wrefresh(input_wnd); // Go back to the input box.
+    if(recv_packet.type == PACKET_SRV){
+      if(recv_packet.srv.error == SRV_NOERR){
+        print_line(5, "-", recv_packet.srv.message); 
+      }else if(recv_packet.srv.error == SRV_ERR){
+        print_line(3, "-", recv_packet.srv.message);
+      }
+    }else{
+      print_line(0, recv_packet.msg.username, recv_packet.msg.message);
+    }
     memset(&recv_packet, 0 , sizeof(struct packet));
   }
   pthread_exit(NULL);
@@ -116,10 +186,20 @@ bool init_colors()
   // For default color handling of the terminal.
   use_default_colors();
   // Initialize color pair sets.
+  init_pair(0, COLOR_WHITE, -1);
   init_pair(1, COLOR_WHITE, COLOR_BLUE);
   init_pair(2, COLOR_BLUE, -1);
-  init_pair(3, -1, COLOR_RED);
-  init_pair(4, -1, COLOR_GREEN);
+  init_pair(3, COLOR_RED, -1);
+  init_pair(4, COLOR_GREEN, -1);
+  init_pair(5, 242, -1);
+
+  init_pair(10, 244, 236);
+  init_pair(11, COLOR_WHITE, 242);
+  init_pair(12, 22, 148);
+
+  init_pair(13, 80, 25);
+  init_pair(14, COLOR_WHITE, 32);
+  init_pair(15, 25, 255);
   return TRUE;
 }
 
@@ -137,17 +217,17 @@ int client(void)
   getmaxyx(stdscr, size.lines, size.cols); // Get the size of the current terminal window.
   input_wnd = newwin(1, size.cols, size.lines - 1, 0);
   status_wnd = newwin(1, size.cols, size.lines - 2, 0);
-  message_wnd = newwin(size.lines - 2, size.cols, 0, 0);
-  scrollok(message_wnd, TRUE); // Enable the scrolling of the message window.
+  message_wnd = newwin(size.lines - 3, size.cols, 1, 0);
+  system_wnd = newwin(1, size.cols, 0, 0);
+  scrollok(message_wnd, TRUE);
   keypad(input_wnd, true); // Get all function keys from the keyboard.
   set_escdelay(1);
   init_colors(); // Initialize all color pairs and other functions.
-  wbkgd(status_wnd, COLOR_PAIR(1)); // Set the background and foreground color.
-
   result = client_handler();
   delwin(message_wnd);
   delwin(status_wnd);
   delwin(input_wnd);
+  delwin(system_wnd);
   endwin(); // Close curses and return to normal mode.
   if(result == EXIT_FAILURE){
     perror("chatty");
@@ -158,7 +238,6 @@ int client(void)
 
 void client_msg_start()
 {
-  wprintw(status_wnd, " [Not connected]");
   wattron(message_wnd, COLOR_PAIR(2));
   wprintw(message_wnd,
           "      _           _   _\n"
@@ -171,7 +250,6 @@ void client_msg_start()
           "type :connect <ip address> to connect to a server.\n"
           "type :q to exit the application.\n\n", VERSION);
   wattroff(message_wnd, COLOR_PAIR(2));
-  wrefresh(status_wnd);
   wrefresh(message_wnd);
   wrefresh(input_wnd);
 }
@@ -179,93 +257,93 @@ void client_msg_start()
 int client_handler()
 {
   struct packet client_packet; // Main client packet for data sending purpose.
-  char nick[MAX_NAME_SIZE];
+  struct client_str * client; // The main client struct.. with the nickname and socket id.
   unsigned char buffer[MAX_BUFFER_SIZE]; // Fixme: but later.. XD
-  char ip[INET6_ADDRSTRLEN];
   bool function_escape;
-  int socket, byte_count;
+  int byte_count;
   struct passwd * pwd;
   pthread_t thread;
   unsigned char client_mode;
 
+  client = malloc(sizeof(struct client_str));
   {
     pwd = getpwuid(geteuid());
-    strncpy(nick, pwd->pw_name, MAX_NAME_SIZE); // Copy the name from the passwd pointer.
+    strncpy(client->nick, pwd->pw_name, MAX_NAME_SIZE); // Copy the name from the passwd pointer.
   }
-  client_mode = CLIENT_IDLE; // Client should now wait for commands.
+
   client_msg_start(); // Display the f*cking awesome ASCII art ;) 
-  socket = -1;
+  client->mode = CLIENT_IDLE; // Client should now wait for commands.
+  client->socket = -1;
+  update_status_window(client);
 
   while(true){
-    if(client_mode == CLIENT_IDLE){
+    if(client->mode == CLIENT_IDLE){
       switch(wgetch(input_wnd)){
         case 'i':
-          if(socket == -1){
-            waddstr(message_wnd, "You are not connected to a server!\n");;
-            wrefresh(message_wnd);
-            wrefresh(input_wnd);
+          if(client->socket == -1){
+            print_line(5, NULL, "You are not connected to a server!");
             break;
           }
-          client_mode = CLIENT_INSERT;
-          switch_client_mode(client_mode);
+          client->mode = CLIENT_INSERT;
+          switch_client_mode(client);
           break;
         case ':':
-          client_mode = CLIENT_COMMAND;
-          switch_client_mode(client_mode);
+          client->mode = CLIENT_COMMAND;
+          switch_client_mode(client);
           break;
         default:
           continue;
       }
     }
-    else if(client_mode == CLIENT_COMMAND){
-      char command[32], args[32];
+    else if(client->mode == CLIENT_COMMAND){
+      char args[MAX_DATA_SIZE];
       int result;
       memset(buffer, 0, MAX_BUFFER_SIZE);
       if(read_client_console(buffer, true)){
-        if((result = command_expand(buffer, command, args)) != -1){
-          if(strcmp(command, "q") == 0 || strcmp(command, "quit") == 0){
+        if((result = command_expand(buffer, args)) != -1){
+          if(strcmp(buffer, "q") == 0 || strcmp(buffer, "quit") == 0){
             break;
           }
-          if(strcmp(command, "connect") == 0){
-            if((socket = client_connect(args, nick)) == -1){
-              wprintw(message_wnd, "Error occured: %s\n", strerror(errno));
+          else if(strcmp(buffer, "connect") == 0){
+            if((client->socket = client_connect(args, client->nick)) == -1){
+              print_line(3, "Error occured", "%s, %s", strerror(errno), args);
             }else{
-              pthread_create(&thread, NULL, reciveThread, (void *) &socket);
-              wprintw(message_wnd, "Connected to: %s\n", args);
+              strcpy(client->ip, args);
+              pthread_create(&thread, NULL, reciveThread, (void *) &client->socket);
+              print_line(3, NULL, "Connected to %s", args);
             }
-            wrefresh(message_wnd);
-            wrefresh(input_wnd);
+          }
+          else{
+            print_line(3, NULL, "unknown command '%s'.", buffer);
           }
         }
       }
-      client_mode = CLIENT_IDLE;
-      switch_client_mode(client_mode);
-    }else if(client_mode == CLIENT_INSERT){
+      client->mode = CLIENT_IDLE;
+      switch_client_mode(client);
+    }else if(client->mode == CLIENT_INSERT){
       memset(buffer, 0, MAX_BUFFER_SIZE);
       while(read_client_console(buffer, false)){
-        byte_count = message_to_server(socket, nick, buffer);
-        wprintw(message_wnd, " Send: %d bytes\n", byte_count);
-        wrefresh(message_wnd);
-        wrefresh(input_wnd);
+        byte_count = message_to_server(client->socket, client->nick, buffer);
         memset(buffer, 0, MAX_BUFFER_SIZE);
       }
-      client_mode = CLIENT_IDLE;
-      switch_client_mode(client_mode);
+      client->mode = CLIENT_IDLE;
+      switch_client_mode(client);
     }
   }
   recivethread_active = false; // Close reciving thread.
-  if(socket != -1){
-    close(socket);
+  if(client->socket != -1){
+    close(client->socket);
   }
+  free(client);
   return 0;
 }
 
 bool read_client_console(unsigned char * buffer, bool command)
 {
   int char_num = 0, key_char = ' ';
-
   while((key_char = wgetch(input_wnd)) != KEY_ESCAPE){
     if(key_char == '\n' || char_num >= MAX_BUFFER_SIZE - 1){
+      *(buffer + (char_num)) = 0x0;
       werase(input_wnd);
       return true;
     }
@@ -295,26 +373,27 @@ bool read_client_console(unsigned char * buffer, bool command)
   return false;
 }
 
-int command_expand(char * buffer, char * command, char * arg)
+int command_expand(char * buffer, char * arg)
 {
   bool current_cmd = true;
   int arg_begining = 0;
-  if(strlen(buffer) == 0){
+  unsigned int buffer_length;
+  if((buffer_length = strlen(buffer)) == 0){
     return -1;
   }
-  memset(command, 0, strlen(command));
-  memset(arg, 0, strlen(arg));
-
-  for(unsigned int i = 0; i < strlen(buffer); i++){
+  memset(arg, 0, MAX_DATA_SIZE);
+  for(unsigned int i = 0; i < buffer_length; i++){
     if(current_cmd == true && *(buffer + i) == ' '){
       current_cmd = false;
       arg_begining = i + 1;
+      *(buffer + i) = '\0';
       continue;
     }
     if(current_cmd){
-      *(command + i) = *(buffer + i);
+      continue;
     }else{
       *(arg + (i - arg_begining)) = *(buffer + i);
+      *(buffer + i) = '\0';
     }
   }
   if(current_cmd){
@@ -368,7 +447,6 @@ int client_connect(char * ip_address, char * username)
   if (send(socket_id, &client_packet, sizeof(struct packet), 0) == -1){
     return -1;
   }
-
   freeaddrinfo(servinfo);
   return socket_id;
 }
